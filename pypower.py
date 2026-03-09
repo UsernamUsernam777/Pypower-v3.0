@@ -100,8 +100,20 @@ class Files:
             b.write(new_text.replace('\n\n', '\n'))
 class GUI:
     class CustomTk:
-        def show_hide_message(master, message, text_color='red', font=('arial', 30), x=None, y=None, hide_after=1):
-            a = ctk.CTkLabel(master, text=message, font=font, text_color=text_color)
+        def double_clk_copy_label(label):
+            def co(e):
+                _pyperclip.copy(label.cget('text'))
+                def place():
+                    x = label.winfo_x() - label.winfo_width() // 2
+                    y = label.winfo_y() + label.winfo_height()
+                    GUI.CustomTk.show_hide_message(label.master, 'Copied!', text_color='green', x=x, y=y)
+                label.after(200, place)
+            label.bind('<Double-Button-1>', co)
+        def show_hide_message(master, message, text_color='red', font=('arial', 30), x=None, y=None, hide_after=1, in_btn=False):    
+            if in_btn:
+                a = _ctk.CTkButton(master, text=message, font=font, text_color=text_color, hover=False, )
+            else:
+                a = _ctk.CTkLabel(master, text=message, font=font, text_color=text_color)
             if x and y:
                 a.place(x=x, y=y)
             else:
@@ -110,13 +122,13 @@ class GUI:
             return a
         def change_mode(master, light_icon='light', dark_icon='dark'):
             def c():
-                if ctk.get_appearance_mode() == 'Dark':
-                    ctk.set_appearance_mode('Light')
+                if _ctk.get_appearance_mode() == 'Dark':
+                    _ctk.set_appearance_mode('Light')
                     button.configure(text=dark_icon)
                 else:
-                    ctk.set_appearance_mode('Dark')
+                    _ctk.set_appearance_mode('Dark')
                     button.configure(text=light_icon)
-            button = ctk.CTkButton(master, text=dark_icon, command=c, font=('arial', 30))
+            button = _ctk.CTkButton(master, text=dark_icon, command=c, font=('arial', 30))
             return button
         def in_point(widgets, x, y):
             return [w for w in widgets if w.winfo_x() == x and w.winfo_y() == y]
@@ -178,7 +190,7 @@ class GUI:
             def resume_timer(self):
                 self.resume = self.duration > 0
                 self.start()
-        def show_hide_button(entry, show_ico="show", hide_ico='hide', hide_with="*"):
+        def show_hide_entry_btn(entry, show_ico="show", hide_ico='hide', hide_with="*"):
             entry.configure(show=hide_with)
             btn = _ctk.CTkButton(entry.master, text=show_ico, font=("arial", 20))
             def change():
