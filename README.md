@@ -1,7 +1,7 @@
 # pypower (New Version)
 Note: this lib is updated everytime
 a useful lib for:
-string, gui, apps, files, math, iterables, 
+string, gui, apps, files, math, iterables, time, other things
 
 ## 🛡️ License & Legal Protection
 This project is protected by the **Creative Commons BY-NC-SA 4.0** license.
