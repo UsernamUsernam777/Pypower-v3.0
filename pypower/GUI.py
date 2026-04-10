@@ -3,8 +3,32 @@ from . import Math as _Math
 from . import Files as __Files
 from . import String as _String
 from . import Iterable as _Iterable
+from . import Time as _Time
 import ast as _ast
 class CustomTk:
+    def chart(master, values, with_labels=False, width=50, color='blue', circle=False, corner_radius=0):
+        frame = _ctk.CTkScrollableFrame(master)
+        data = [_ctk.CTkFrame(frame, fg_color=color, height=i * 2, width=width, corner_radius=corner_radius) for i in values]
+        for d in range(len(data)):
+            CustomTk.label_widget(data[d], values[d], 'above', value=30)
+        CustomTk.tidy_up(data, len(data))
+        return frame
+    def history_binds(obj):
+        old_func = obj.bind
+        def bind(sequence=None, command=None, add=True):
+            if not all([sequence, command]):
+                return obj._binds
+            else:
+                old_func(sequence, command, add)
+                obj._binds.append({'sequence': sequence, 'command': command, 'add': add})
+        if not hasattr(obj, '_binds'):
+            setattr(obj, '_binds', [])
+            setattr(obj, 'bind', bind)
+    def apply_binds(obj1, obj2):
+        a = CustomTk.history_binds(obj1)
+        if a:
+            for i in a:
+                obj2.bind(**i)
     class Manager:
         def clear_manager(dic):
             no = ['width', 'height', 'in', 'relwidth', 'relheight']
@@ -39,6 +63,7 @@ class CustomTk:
             if t:
                 n = getattr(obj1, f'{t}_info')()
                 n = CustomTk.Manager.clear_manager(n)
+                n = {k: int(v) for k, v in n.items() if _Math.int_or_float(v)}
                 getattr(obj2, f'{t}')(**n)
     def copy_style(master, all_objects=True):
         if all_objects:
@@ -88,15 +113,17 @@ class CustomTk:
             label.configure(text=lenth_all)
         check.trace_add('write', c)
         return label
-    def label_widget(obj, message, side='above', value=0, text_color='black', font=('arial', 10), fg_color=None):
+    def label_widget(obj, message, side='above', text_color='black', font=('arial', 10), fg_color=None, value=0):
         l = _ctk.CTkLabel(obj.master, text=message, text_color=text_color, font=font, fg_color=fg_color)
         def m():
+            l.configure(width=obj.winfo_width())
             l.lift()
             if side == 'above':
-                l.place(x=obj.winfo_x(), y=obj.winfo_y()-obj.winfo_height())
+                y = obj.winfo_y() - value
             else:
-                l.place(x=obj.winfo_x(), y=obj.winfo_y()+obj.winfo_height())
-        obj.master.after(200, m)
+                y = obj.winfo_y() + value
+            l.place(x=obj.winfo_x(), y=y)
+        obj.master.after(500, m)
     def entry_label(obj):
         is_label = isinstance(obj, _ctk.CTkLabel)
         event = "<Shift-Double-Button-1>" if is_label else "<Return>"
@@ -174,23 +201,29 @@ class CustomTk:
             CustomTk.duplicate_double_click(new)
         widget.bind('<Double-Button-1>', alls)
     def clone_widget_not_frame(widget, master=None):
+        """clone widget's DNA (with binds if it used CustomTk.history_bind"""
         new = widget.__class__(master or widget.master)
-        attr = widget.__dict__
+        attr = ['_bg_color', '_fg_color', '_text_color', '_text_color_disabled', '_command', '_state',
+                '_textvariable' , '_variable', '_border_width' , '_border_color',
+                '_corner_radius', '_anchor', '_wraplength', '_image', '_compound', '_font', '_text']
         for i in attr:
+            n = i.strip('_')
             try:
-                new_config = {i.strip('_'): attr[i]}
-                new.configure(**new_config)
+                new.configure(**{n: widget.cget(n)})
             except Exception as e:
                 pass
-        new.configure(width=attr['_current_width'], height=attr['_current_height'])
+        def m():
+            new.configure(width=widget.winfo_width(), height=widget.winfo_height())
+        widget.after(100, m)
+        CustomTk.apply_binds(widget, new)
         return new
     def clone_frame(frame, master=None):
-        new_frame = GUI.CustomTk.clone_widget_not_frame(frame, master or frame.master)
+        new_frame = CustomTk.clone_widget_not_frame(frame, master or frame.master)
         for i in frame.winfo_children():
-            if isinstance(i, ctk.CTkFrame):
-                GUI.CustomTk.Manager.manager_same(i, clone_frame(i, new_frame))
+            if isinstance(i, _ctk.CTkFrame):
+                CustomTk.Manager.manager_same(i, CustomTk.clone_frame(i, new_frame))
             else:
-                GUI.CustomTk.Manager.manager_same(i, GUI.CustomTk.clone_widget_not_frame(i, new_frame))
+                CustomTk.Manager.manager_same(i, CustomTk.clone_widget_not_frame(i, new_frame))
         return new_frame
     def add_texts_to_file(master, file, title):
         _Files.make_if_not_exists(file, 'txt')
@@ -264,34 +297,36 @@ class CustomTk:
     class Timer:
         def __init__(self, duration, obj, start_icon='start', stop_icon='stop', while_resume=None, when_finish=None):
             self.duration = duration
-            self.resume = self.duration > 0
+            self.copy_dur = self.duration
             self.obj = obj
-            self.obj.configure(text=Time.how_many_hms_in_s(self.duration))
+            self.obj.configure(text=_Time.how_many_hms_in_s(self.duration))
             self.button = _ctk.CTkButton(obj.master, text=start_icon, command=self.start)
             self.start_icon = start_icon
             self.stop_icon = stop_icon
             self.timers = 0
             self.while_resume = while_resume
             self.when_finish = when_finish
+            self.paused = False
         def start(self):
-            if self.resume:
+            if not self.paused and self.duration:
                 self.button.configure(command=self.stop, text=self.stop_icon)
                 self.duration -= 1
-                self.obj.configure(text=Time.how_many_hms_in_s(self.duration))
+                self.obj.configure(text=_Time.how_many_hms_in_s(self.duration))
                 if self.while_resume:
                     self.while_resume()
                 if self.duration == 0:
+                    self.button.configure(text=self.start_icon, command=self.start)
+                    self.duration = self.copy_dur
                     if self.when_finish:
-                        self.button.configure(text=self.start_icon)
                         self.when_finish()
                 else:
                     self.obj.after(1000, self.start)
         def stop(self):
+            self.paused = True
             self.button.configure(command=self.resume_timer, text=self.start_icon)
-            self.resume = False
         def resume_timer(self):
-            self.resume = self.duration > 0
-            self.start()
+            self.paused = False
+            self.obj.after(1000, self.start)
     def show_hide_entry_btn(entry, show_ico="show", hide_ico='hide', hide_with="*"):
         entry.configure(show=hide_with)
         btn = _ctk.CTkButton(entry.master, text=show_ico, font=("arial", 20))
@@ -405,18 +440,17 @@ class CustomTk:
             inf.after(500, lambda: inf.place(x=x, y=y+widget.winfo_height()))
             inf.after(int(hide_after*1000), inf.place_forget)
         widget.bind('<Enter>', show)
-    def mouse_wheel_num(entry, end, step=1):
+    def mouse_wheel_num(entry, end, step=1, insert_before_scroll=0):
         """Scroll through numbers inside an entry with the mouse wheel."""
+        entry.insert(0, str(insert_before_scroll))
         def f(e):
             if _Math.int_or_float(entry.get()):
                 a = float(entry.get())
                 entry.delete(0, 'end')
                 if e.delta >= 1:
-                    new_num = type(step)(a + step)
+                    new_num = type(step)(a + step) % end
                 else:
-                    new_num = type(step)(a - step)
-                if a == end:
-                    new_num = 0
+                    new_num = type(step)(a - step) % end
                 entry.insert(0, round(new_num, 2))
         entry.bind("<MouseWheel>", f)
 class Turtle:
