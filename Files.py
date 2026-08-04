@@ -18,3 +18,12 @@ def make_if_not_exists(file_or_folder, type='file'):
                 pass
         else:
             _os.mkdir(file_or_folder)
+def apply_func_to_files_names(folder_path, func=str.capitalize, nested=False):
+    #join with the folder path if not nested
+    def jif(x):
+        return _os.path.join(folder_path, x)
+    lst = flat_listdir(folder_path) if nested else map(jif, _os.listdir(folder_path))
+    for f in lst:
+        f = _os.path.join(folder_path, f)
+        name = f.split('\\')[-1].split('.')[-2]
+        _os.rename(f, f.replace(name, func(name)))
